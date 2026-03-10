@@ -1,0 +1,53 @@
+.App {
+    text-align: center;
+}
+
+.players-logo {
+    height: 10vmin;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .players-logo {
+        animation: App-logo-spin infinite 20s linear;
+    }
+}
+
+.players-header {
+    background-color: #282c34;
+    min-height: 10vh;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    font-size: calc(10px + 2vmin);
+    color: white;
+}
+
+.player-results-header {
+    display: flex;
+    justify-content: center;
+    margin-top: 2vh;
+    gap: 2vh;
+}
+.player-results-search {
+    gap: 1vh;
+    display: flex;
+}
+
+.players-results-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 10px 10px 10px 10px;
+}
+
+
+@keyframes App-logo-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
