@@ -29,14 +29,14 @@ public class ChatClientService {
     }
 
     public String chat() throws OllamaBaseException, IOException, InterruptedException {
-        String model = OllamaModelType.TINYLLAMA;
+        String model = "tinyllama";
 
-        PromptBuilder promptBuilder =
-                new PromptBuilder()
-                        .addLine("Recite a haiku about recursion.");
+        // PromptBuilder promptBuilder =
+        //         new PromptBuilder()
+        //                 .addLine("Recite a haiku about recursion.");
 
-        /** Sample prompt
-         *
+        // /** Sample prompt
+        //  *
         PromptBuilder promptBuilder =
                 new PromptBuilder()
                         .addLine("You are an expert coder and understand different programming languages.")
@@ -55,7 +55,7 @@ public class ChatClientService {
                         .addLine("```")
                         .addSeparator()
                         .add("How do I read a file in Go and print its contents to stdout?");
-         **/
+        //  **/
 
         boolean raw = false;
         OllamaResult response = ollamaAPI.generate(model, promptBuilder.build(), raw, new OptionsBuilder().build());

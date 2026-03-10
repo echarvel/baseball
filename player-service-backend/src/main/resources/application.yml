@@ -22,4 +22,8 @@ server:
   error:
     include-message: always
 
+app:
+  environment: dev
+  name: Player Service
+
 
