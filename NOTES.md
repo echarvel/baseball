@@ -592,10 +592,84 @@ int updateCountry(@Param("id") String id, @Param("country") String country);
 - **JPQL** — queries against Java entities (`Player p`, `p.birthYear`). Portable, validated at startup.
 - **Native SQL** (`nativeQuery = true`) — raw SQL against actual tables/columns. Use for DB-specific features or complex joins.
 
-**Query progression:**
-1. **Method naming** (`findByBirthCountry`) — simple queries, zero SQL
-2. **`@Query` with JPQL** — complex queries, entity-based
-3. **`@Query` with native SQL** — full SQL power when needed
+### Dynamic Queries (Optional Filters)
+
+When you have multiple optional search fields (e.g., ID and country, both optional), static approaches break down:
+- Method naming → need a method for every combination
+- `@Query` → static, can't conditionally add WHERE clauses (hack: `(:id IS NULL OR p.playerId = :id)` gets ugly fast)
+
+**Option 1: JPA Specifications (recommended)** — clean, reusable:
+
+Repository needs to extend one more interface:
+```java
+public interface PlayerRepository extends JpaRepository<Player, String>, JpaSpecificationExecutor<Player> {
+}
+```
+
+Controller builds the spec dynamically:
+```java
+@GetMapping
+public ResponseEntity<Page<Player>> getPlayers(
+        @RequestParam(required = false) String id,
+        @RequestParam(required = false) String country,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size) {
+
+    Specification<Player> spec = Specification.where(null);
+    if (id != null) {
+        spec = spec.and((root, query, cb) -> cb.equal(root.get("playerId"), id));
+    }
+    if (country != null) {
+        spec = spec.and((root, query, cb) -> cb.equal(root.get("birthCountry"), country));
+    }
+    return ResponseEntity.ok(playerRepository.findAll(spec, PageRequest.of(page, size)));
+}
+```
+
+The lambda `(root, query, cb)`:
+- `root` — the entity (access fields with `root.get("fieldName")`)
+- `query` — the query being built
+- `cb` — CriteriaBuilder (creates conditions: `equal`, `like`, `greaterThan`, etc.)
+
+Each `.and()` adds a WHERE clause. Both provided: `WHERE PLAYERID = ? AND BIRTHCOUNTRY = ?`. One: just that clause. Neither: no WHERE.
+
+**Option 2: Native SQL with EntityManager** — if you're more comfortable with SQL:
+
+```java
+@Autowired
+private EntityManager entityManager;
+
+public List<Player> search(String id, String country) {
+    StringBuilder sql = new StringBuilder("SELECT * FROM PLAYERS WHERE 1=1");
+    if (id != null) sql.append(" AND PLAYERID = :id");
+    if (country != null) sql.append(" AND BIRTHCOUNTRY = :country");
+
+    Query query = entityManager.createNativeQuery(sql.toString(), Player.class);
+    if (id != null) query.setParameter("id", id);
+    if (country != null) query.setParameter("country", country);
+    return query.getResultList();
+}
+```
+
+`Player.class` as second arg tells JPA to map result rows into Player objects automatically.
+
+**Option 3: JPQL with EntityManager** — same but uses entity field names:
+
+```java
+StringBuilder jpql = new StringBuilder("SELECT p FROM Player p WHERE 1=1");
+if (id != null) jpql.append(" AND p.playerId = :id");
+TypedQuery<Player> query = entityManager.createQuery(jpql.toString(), Player.class);
+```
+
+**Full query approach comparison:**
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| Method naming | Zero code | Fixed filters only |
+| `@Query` | Readable SQL/JPQL | Static, no conditionals |
+| Native SQL + EntityManager | Full SQL power, dynamic | String building, less safe |
+| Criteria API | Type-safe, dynamic | Verbose |
+| `Specification` | Clean, reusable, dynamic | Slight learning curve |
 
 ### The Service Layer — Business Logic
 
@@ -804,6 +878,74 @@ new OptionsBuilder()
         .setTopP(0.9f)           // nucleus sampling
         .build()
 ```
+
+**4. Unified chat — orchestrating DB + ML + LLM:**
+
+The chat service becomes an orchestrator that routes user messages to the right backend:
+- "Tell me about Hank Aaron" → DB lookup + LLM (RAG)
+- "Find players similar to Hank Aaron" → ML service (KNN)
+- General question → LLM directly
+
+Simple approach (good for interview speed):
+```java
+@Service
+public class ChatService {
+    @Autowired private PlayerRepository playerRepository;
+    @Autowired private TeamService teamService;
+    @Autowired private OllamaAPI ollamaAPI;
+
+    public String chat(String userMessage) {
+        if (userMessage.toLowerCase().contains("similar") || userMessage.contains("team")) {
+            return handleTeamRequest(userMessage);
+        }
+        return handlePlayerQuestion(userMessage);
+    }
+
+    private String handlePlayerQuestion(String userMessage) {
+        // find player, build RAG prompt, call LLM
+    }
+
+    private String handleTeamRequest(String userMessage) {
+        // extract player, call ML service, optionally narrate with LLM
+    }
+}
+```
+
+Staff-level approach (mention verbally, implement if time allows) — strategy pattern:
+```java
+public interface ChatHandler {
+    boolean canHandle(String message);
+    String handle(String message);
+}
+
+@Component
+public class PlayerInfoHandler implements ChatHandler {
+    public boolean canHandle(String msg) { return !msg.contains("similar"); }
+    public String handle(String msg) { /* RAG lookup */ }
+}
+
+@Component
+public class SimilarPlayersHandler implements ChatHandler {
+    public boolean canHandle(String msg) { return msg.contains("similar"); }
+    public String handle(String msg) { /* ML service call */ }
+}
+
+@Service
+public class ChatService {
+    @Autowired
+    private List<ChatHandler> handlers;  // Spring auto-collects both
+
+    public String chat(String message) {
+        return handlers.stream()
+                .filter(h -> h.canHandle(message))
+                .findFirst()
+                .orElseThrow()
+                .handle(message);
+    }
+}
+```
+
+Extensible without modifying existing code. But for a 75-minute interview, the simple if/else with private methods is fine — mention the pattern verbally as a trade-off.
 
 ---
 

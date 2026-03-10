@@ -1,6 +1,7 @@
 import logo from '../assets/logo.svg';
 import '../styling/PlayersMain.css';
 import PlayerResults from "./PlayersResults";
+import Chat from "./Chat";
 
 function PlayerMain() {
     return (
@@ -12,6 +13,7 @@ function PlayerMain() {
                 </p>
             </header>
             <PlayerResults/>
+            <Chat/>
         </div>
     );
 }

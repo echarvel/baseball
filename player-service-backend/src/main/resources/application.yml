@@ -26,4 +26,7 @@ app:
   environment: dev
   name: Player Service
 
+ml-service:
+  url: http://localhost:5001
+
 
